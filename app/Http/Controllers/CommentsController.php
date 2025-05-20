@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Comment;
+use Illuminate\Support\Facades\Log;
 
 class CommentsController extends Controller
 {
@@ -12,8 +13,16 @@ class CommentsController extends Controller
      */
     public function index()
     {
-        $comments = Comment::all();
-        return response()->json(['message' => 'Comments retrieved successfully', 'comments' => $comments], 200);
+        try {
+            $comments = Comment::all();
+            return response()->json(['message' => 'Comments retrieved successfully', 'comments' => $comments], 200);
+        } catch (\Exception $e) {
+            Log::error('Error fetching comments: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'Error retrieving comments',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     /**
@@ -29,14 +38,42 @@ class CommentsController extends Controller
      */
     public function store(Request $request)
     {
-        $request->validate([
-            'name' => 'required|string',
-            'email' => 'required|email',
-            'content' => 'required|string',
-            'post_id' => 'required|exists:posts,id',
-        ]);
-        $comment = Comment::create($request->all());
-        return response()->json(['message' => 'Comment created successfully', 'comment' => $comment], 201);
+        try {
+             // Debug incoming request
+            Log::info('Comment Creation Request:', [
+                'all_data' => $request->all(),
+                'content_type' => $request->header('Content-Type'),
+                'is_json' => $request->isJson(),
+                'raw_content' => $request->getContent()
+            ]);
+
+            $validated = $request->validate([
+                'content' => 'required|string',
+                'post_id' => 'required|exists:posts,id',
+                'user_id' => 'required|exists:users,id',
+                'is_published' => 'nullable|boolean',
+                'published_at' => 'nullable|date',
+            ]);
+
+            $comment = Comment::create($validated);
+            return response()->json(['message' => 'Comment created successfully', 'comment' => $comment], 201);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            Log::error('Validation failed:', [
+                'errors' => $e->errors(),
+                'request_data' => $request->all()
+            ]);
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('Error creating comment: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'Error creating comment',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     /**
@@ -44,11 +81,19 @@ class CommentsController extends Controller
      */
     public function show(string $id)
     {
-        $comment = Comment::find($id);
-        if (!$comment) {
-            return response()->json(['message' => 'Comment not found'], 404);
+        try {
+            $comment = Comment::find($id);
+            if (!$comment) {
+                return response()->json(['message' => 'Comment not found'], 404);
+            }
+            return response()->json(['message' => 'Comment retrieved successfully', 'comment' => $comment], 200);
+        } catch (\Exception $e) {
+             Log::error('Error fetching comment: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'Error retrieving comment',
+                'error' => $e->getMessage()
+            ], 500);
         }
-        return response()->json(['message' => 'Comment retrieved successfully', 'comment' => $comment], 200);
     }
 
     /**
@@ -56,7 +101,7 @@ class CommentsController extends Controller
      */
     public function edit(string $id)
     {
-        
+        //
     }
 
     /**
@@ -64,20 +109,39 @@ class CommentsController extends Controller
      */
     public function update(Request $request, string $id)
     {
-        $comment = Comment::find($id);
-        if(!$comment){
-            return response()->json(['message'=> 'comment not found'],404);
-        }
-        $request->validate([
-            'name' => 'required|string',
-            'email' => 'required|email',
-            'content' => 'required|string',
-            'post_id' => 'required|exists:posts,id',
-        ]);
+         try {
+            $comment = Comment::find($id);
+            if(!$comment){
+                return response()->json(['message'=> 'comment not found'],404);
+            }
 
-        $comment->update($request->all());
-        
-        return response()->json(['message' => 'comment updated successfully', 'comment' => $comment], 200);
+            $validated = $request->validate([
+                'content' => 'required|string',
+                'post_id' => 'required|exists:posts,id',
+                'user_id' => 'required|exists:users,id',
+                 'is_published' => 'nullable|boolean',
+                'published_at' => 'nullable|date',
+            ]);
+
+            $comment->update($validated);
+            return response()->json(['message' => 'comment updated successfully', 'comment' => $comment], 200);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            Log::error('Validation failed:', [
+                'errors' => $e->errors(),
+                'request_data' => $request->all()
+            ]);
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('Error updating comment: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'Error updating comment',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     /**
@@ -85,11 +149,20 @@ class CommentsController extends Controller
      */
     public function destroy(string $id)
     {
-        $comment = Comment::find($id);
-        if (!$comment) {
-            return response()->json(['message' => 'Comment not found'], 404);
+        try {
+            $comment = Comment::find($id);
+            if (!$comment) {
+                return response()->json(['message' => 'Comment not found'], 404);
+            }
+            $comment->delete();
+            return response()->json(['message' => 'Comment deleted successfully'], 204);
+
+        } catch (\Exception $e) {
+             Log::error('Error deleting comment: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'Error deleting comment',
+                'error' => $e->getMessage()
+            ], 500);
         }
-        $comment->delete();
-        return response()->json(['message' => 'Comment deleted successfully'], 204);
     }
 }

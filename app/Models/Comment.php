@@ -5,16 +5,16 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
-class comments extends Model
+class Comment extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
         'post_id',
-        'name',
-        'email',
-        'comment',
+        'user_id',
+        'content',
         'is_published',
         'published_at'
     ];
@@ -24,8 +24,19 @@ class comments extends Model
         'published_at' => 'datetime'
     ];
 
+    /**
+     * Get the post that owns the comment.
+     */
     public function post(): BelongsTo
     {
-        return $this->belongsTo(posts::class);
+        return $this->belongsTo(Post::class);
+    }
+
+    /**
+     * Get the user that owns the comment.
+     */
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
     }
 }

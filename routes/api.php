@@ -26,6 +26,8 @@ Route::apiResource('categories', CategoriesController::class);
 
 // Posts Routes
 Route::apiResource('posts', PostsController::class);
+Route::get('/categories/{id}/posts', [PostsController::class, 'prd_ctg']);
+
 
 // Comments Routes
 Route::apiResource('comments', CommentsController::class);

@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\Category;
 use App\Http\Resources\CategoryResource;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class CategoriesController extends Controller
 {
@@ -51,10 +52,16 @@ class CategoriesController extends Controller
             $validated = $request->validate([
                 'name' => 'required|string|max:255|unique:categories',
                 'description' => 'nullable|string',
-                'image' => 'nullable|string|url',
+                'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
                 'is_published' => 'nullable|boolean',
                 'parent_id' => 'nullable|exists:categories,id'
             ]);
+
+            // Handle image upload
+            if ($request->hasFile('image')) {
+                $imagePath = $request->file('image')->store('categories', 'public');
+                $validated['image'] = $imagePath;
+            }
 
             $category = Category::create($validated);
             
@@ -125,10 +132,20 @@ class CategoriesController extends Controller
             $validated = $request->validate([
                 'name' => 'required|string|max:255|unique:categories,name,' . $id,
                 'description' => 'nullable|string',
-                'image' => 'nullable|string|url',
+                'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
                 'is_published' => 'nullable|boolean',
                 'parent_id' => 'nullable|exists:categories,id'
             ]);
+
+            // Handle image upload
+            if ($request->hasFile('image')) {
+                // Delete old image if it exists
+                if ($category->image) {
+                    Storage::disk('public')->delete($category->image);
+                }
+                $imagePath = $request->file('image')->store('categories', 'public');
+                $validated['image'] = $imagePath;
+            }
 
             $category->update($validated);
             return new CategoryResource($category);
@@ -162,10 +179,7 @@ class CategoriesController extends Controller
 
             // Delete image if exists
             if ($category->image) {
-                $imagePath = public_path('images/categories/' . $category->image);
-                if (file_exists($imagePath)) {
-                    unlink($imagePath);
-                }
+                 Storage::disk('public')->delete($category->image);
             }
 
             $category->delete();
